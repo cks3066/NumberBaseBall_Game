@@ -83,7 +83,7 @@ void game() {
 
             } else {
                 dup2(fd[0], STDOUT_FILENO);
-                printf("세자리 수를 입력해주세\n");
+                printf("세자리 수를 입력해주세요\n");
                 while (getchar() != '\n')
                     ;
                 dup2(fd[1], STDOUT_FILENO);
