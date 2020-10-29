@@ -40,7 +40,6 @@ void game() {
 
     mkfifo("serverWR", PERMS); //서버 입력용 파이프라인(유저 출력)
     mkfifo("clientWR", PERMS); //유저 입력용 파이프라인(서버 출력)
-    mkfifo("tempSTDOUT", PERMS);
     dup2(STDOUT_FILENO, fd[2]);
 
     srand(time(NULL));
