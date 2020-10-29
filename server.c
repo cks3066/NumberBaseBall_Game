@@ -26,8 +26,6 @@ void game() {
     char buf[MAX_BUF_SIZE] = {
         0x00,
     };
-    int units = 0, tens = 0, hunds = 0;
-    int sunits = 0, stens = 0, shunds = 0;
     int serverNum[3] = {
         0,
     };
