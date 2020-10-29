@@ -30,9 +30,8 @@ void game() {
     int units = 0, tens = 0, hunds = 0;
     int temp;
 
-    fd[2] = open("tempSTDOUT", O_RDWR);
-    fd[1] = open("clientWR", O_WRONLY);
     fd[0] = open("serverWR", O_RDONLY);
+    fd[1] = open("clientWR", O_WRONLY);
 
     printf("숫자 야구 게임\n");
 
