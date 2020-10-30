@@ -6,17 +6,14 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-
 #define PERMS 0666
 #define MAX_BUF_SIZE 32 + 1
-
 void game();
-
 int main(int argc, char const *argv[]) {
+
     game();
     return 0;
 }
-
 void game() {
     int num = 0;
     int fd[3] = {
@@ -38,6 +35,7 @@ void game() {
 
     mkfifo("serverWR", PERMS); //서버 입력용 파이프라인(유저 출력)
     mkfifo("clientWR", PERMS); //유저 입력용 파이프라인(서버 출력)
+
     dup2(STDOUT_FILENO, fd[2]);
 
     srand(time(NULL));
@@ -54,10 +52,8 @@ void game() {
     }
     num = 100 * serverNum[0] + 10 * serverNum[1] + serverNum[2];
     printf("%d\n", num);
-
     fd[0] = open("clientWR", O_RDONLY); // 4번 fd 서버 출력용 파이프라인
     fd[1] = open("serverWR", O_WRONLY); // 5번 fd 서버 입력용 파이프라인
-
     while (1) {
         strike = 0;
         ball = 0;
@@ -85,12 +81,12 @@ void game() {
             }
             if (strike == 3) {
                 dup2(fd[1], STDOUT_FILENO);
-                printf("정답입니다.\n");
+                printf("a정답입니다.\n");
                 fflush(stdout);
                 dup2(fd[2], STDOUT_FILENO);
             } else {
                 dup2(fd[1], STDOUT_FILENO);
-                printf("%d스트라이크 %d볼입니다.\n", strike, ball);
+                printf("b%d스트라이크 %d볼입니다.\n", strike, ball);
                 fflush(stdout);
                 dup2(fd[2], STDOUT_FILENO);
             }
