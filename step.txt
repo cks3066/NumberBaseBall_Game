@@ -1,0 +1,12 @@
+use signal(SIGINT, signalHandler)
+
+notify diffrence puts() with printf()
+
+do not use STDOUT file descriptor to send & receive data
+then, just use write() and read() to get and push buffer
+
+make the Main user interface
+& sign up, sign in systems
+
+how to send the data includes winning or loosing, when games end;
+
