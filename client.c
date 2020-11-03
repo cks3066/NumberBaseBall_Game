@@ -29,33 +29,97 @@ void signChoice();
 // 실행할 작업 선택
 void menu();
 
+void game();
+void record();
+void ranking();
+void help();
+
+int fd[2] = {
+    0,
+};
+
 /***********메인함수***********/
 int main() {
-    printf("광운 숫자야구게임에 오신 걸 환영합니다\n");
 
-    // 로그인 성공 시 종료됨.
-    signChoice();
+    // 서버 입력용 파이프라인(유저 출력)
+    fd[0] = open("serverWR", O_RDONLY);
+    //유저 입력용 파이프라인(서버 출력)
+    fd[1] = open("clientWR", O_WRONLY);
 
-    puts("메인화면 구현");
-    printf("\n");
+    while (1) {
+        printf("숫자야구게임에 오신 걸 환영합니다\n");
 
-    menu();
+        // 로그인 성공 시 종료됨.
+        signChoice();
+        printf("\n");
 
+        while (1) {
+            int choice;
+            int whilebrk = 0;
+            char sign[1] = {0};
+
+            puts(" ************************* 메인화면");
+            puts("게임시작 1번，전적확인 2번, 랭킹확인 3번, 도움말 4번, "
+                 "로그아웃 "
+                 "5번");
+            printf(">>> ");
+            scanf("%d", &choice);
+
+            switch (choice) {
+            case 1: // game
+                sign[0] = '1';
+                lseek(fd[1], (off_t)0, SEEK_SET);
+                write(fd[1], (char *)sign, sizeof(char));
+                game();
+                break;
+            case 2: // record
+                puts("record");
+                printf("\n");
+                sign[0] = '2';
+                lseek(fd[1], (off_t)0, SEEK_SET);
+                write(fd[1], (char *)sign, sizeof(char));
+                record();
+                break;
+            case 3: // ranking
+                puts("ranking");
+                printf("\n");
+                sign[0] = '3';
+                lseek(fd[1], (off_t)0, SEEK_SET);
+                write(fd[1], (char *)sign, sizeof(char));
+                ranking();
+                break;
+            case 4: // help
+                puts("help");
+                printf("\n");
+                sign[0] = '4';
+                lseek(fd[1], (off_t)0, SEEK_SET);
+                write(fd[1], (char *)sign, sizeof(char));
+                help();
+                break;
+            case 5: // logout
+                puts("logout");
+                printf("\n");
+                sign[0] = '5';
+                lseek(fd[1], (off_t)0, SEEK_SET);
+                write(fd[1], (char *)sign, sizeof(char));
+                whilebrk = 1;
+                break;
+            default:
+                break;
+            }
+            if (whilebrk == 1)
+                break;
+        }
+    }
+    close(fd[0]);
+    close(fd[1]);
     return 0;
 }
 
 /***********로그인 UI***********/
 void signChoice() {
     int choice;
-    int fd[2] = {
-        0,
-    };
     char sign[1] = {0};
-
-    // 서버 입력용 파이프라인(유저 출력)
-    fd[0] = open("serverWR", O_RDONLY);
-    //유저 입력용 파이프라인(서버 출력)
-    fd[1] = open("clientWR", O_WRONLY);
 
     while (1) {
         printf("\n");
@@ -70,6 +134,7 @@ void signChoice() {
         switch (choice) {
         case 1:
             sign[0] = '0';
+            lseek(fd[1], (off_t)0, SEEK_SET);
             write(fd[1], (char *)sign, sizeof(char));
             if (signIn() == 1) {
                 return;
@@ -77,6 +142,7 @@ void signChoice() {
             break;
         case 2:
             sign[0] = '1';
+            lseek(fd[1], (off_t)0, SEEK_SET);
             write(fd[1], (char *)sign, sizeof(char));
             signUp();
             break;
@@ -84,33 +150,26 @@ void signChoice() {
             break;
         }
         memset(sign, 0x00, sizeof(char));
-        lseek(fd[1], (off_t)0, SEEK_SET);
     }
 }
 
 /***********로그인***********/
 int signIn() {
-    int fd[2] = {
-        0,
-    };
     char buf[MAX_BUF_SIZE + 1] = {
         0,
     };
     char sign;
 
-    // 서버 입력용 파이프라인(유저 출력)
-    fd[0] = open("serverWR", O_RDONLY);
-    //유저 입력용 파이프라인(서버 출력)
-    fd[1] = open("clientWR", O_WRONLY);
-
     puts(" ************************* 로그인");
     printf("ID : ");
     if (scanf("%s", buf) > 0) {
+        lseek(fd[1], (off_t)0, SEEK_SET);
         write(fd[1], &buf, strlen(buf));
         memset(buf, 0x00, MAX_BUF_SIZE);
-        lseek(fd[1], (off_t)0, SEEK_SET);
+        lseek(fd[0], (off_t)0, SEEK_SET);
         read(fd[0], &sign, sizeof(char));
     } else {
+        memset(buf, 0x00, MAX_BUF_SIZE);
         printf("아이디가 너무 깁니다.\n");
         return 0;
     }
@@ -118,26 +177,27 @@ int signIn() {
     switch (sign) {
     case '0':
         sign = '\0';
-        lseek(fd[0], (off_t)0, SEEK_SET);
+        memset(buf, 0x00, MAX_BUF_SIZE);
         puts("아이디를 생성해주세요");
         printf("\n");
         return 0;
     case '1':
         sign = '\0';
-        lseek(fd[0], (off_t)0, SEEK_SET);
+        memset(buf, 0x00, MAX_BUF_SIZE);
         puts("일치하는 아이디가 없습니다.");
         printf("\n");
         return 0;
     case '2':
         sign = '\0';
-        lseek(fd[0], (off_t)0, SEEK_SET);
         printf("PASSWORD : ");
         if (scanf("%s", buf) > 0) {
+            lseek(fd[1], (off_t)0, SEEK_SET);
             write(fd[1], &buf, strlen(buf));
             memset(buf, 0x00, MAX_BUF_SIZE);
-            lseek(fd[1], (off_t)0, SEEK_SET);
+            lseek(fd[0], (off_t)0, SEEK_SET);
             read(fd[0], &sign, sizeof(char));
         } else {
+            memset(buf, 0x00, MAX_BUF_SIZE);
             printf("비밀번호가 너무 깁니다.\n");
             return 0;
         }
@@ -149,13 +209,13 @@ int signIn() {
     switch (sign) {
     case '0':
         sign = '\0';
-        lseek(fd[0], (off_t)0, SEEK_SET);
+        memset(buf, 0x00, MAX_BUF_SIZE);
         puts("비밀번호가　틀렸습니다.");
         printf("\n");
         return 0;
     case '1':
         sign = '\0';
-        lseek(fd[0], (off_t)0, SEEK_SET);
+        memset(buf, 0x00, MAX_BUF_SIZE);
         puts(" ************************* 로그인 완료");
         printf("\n");
         return 1;
@@ -166,53 +226,136 @@ int signIn() {
 
 /***********회원가입***********/
 void signUp() {
-    int fd[2] = {
-        0,
-    };
+    // 중복체크(미완성)
+    // 아이디 생성시 기존구조체와 동일아이디 중복체크 해야됨
     char buf[MAX_BUF_SIZE + 1] = {
         0,
     };
     char sign;
 
-    // 서버 입력용 파이프라인(유저 출력)
-    fd[0] = open("serverWR", O_RDONLY);
-    //유저 입력용 파이프라인(서버 출력)
-    fd[1] = open("clientWR", O_WRONLY);
     puts(" ************************* 회원 가입");
     printf("ID : ");
     if (scanf("%s", buf) > 0) {
+        lseek(fd[1], (off_t)0, SEEK_SET);
         write(fd[1], &buf, strlen(buf));
         memset(buf, 0x00, MAX_BUF_SIZE);
-        lseek(fd[1], (off_t)0, SEEK_SET);
     } else {
         printf("아이디가 너무 깁니다.\n");
     }
 
     // server로부터 입력된 buf에 따른 sign을 받아옴 0 중복, 1 미중복
+    lseek(fd[0], (off_t)0, SEEK_SET);
     read(fd[0], &sign, sizeof(char));
 
     if (sign == '0') { // 중복이면
         sign = '\0';
-        lseek(fd[0], (off_t)0, SEEK_SET);
-
         puts("이미 존재하는 ID입니다.");
         return;
     } else if (sign == '1') {
         sign = '\0';
-        lseek(fd[0], (off_t)0, SEEK_SET);
-
         printf("PASSWORD : ");
         if (scanf("%s", buf) > 0) {
+            lseek(fd[1], (off_t)0, SEEK_SET);
             write(fd[1], &buf, strlen(buf));
             memset(buf, 0x00, MAX_BUF_SIZE);
-            lseek(fd[1], (off_t)0, SEEK_SET);
         } else {
             printf("비밀번호가 너무 깁니다.\n");
         }
-
         puts(" ************************* 회원가입 완료");
         printf("\n");
     }
 }
 
-void menu() { printf("메인메뉴\n"); }
+void game() {
+    int gfd[3] = {
+        0,
+    };
+    char buf[MAX_BUF_SIZE] = {
+        0x00,
+    };
+    char sign;
+    int num = 1;
+    int inputNum = 0;
+    int units = 0, tens = 0, hunds = 0;
+    int temp;
+    char strike, ball;
+
+    gfd[0] = open("serverWR", O_RDONLY);
+    gfd[1] = open("clientWR", O_WRONLY);
+
+    printf("게임 시작\n");
+
+    while (1) {
+        printf("-%d번째 시도-\n", num);
+        puts("공백없이 세자리 숫자 입력 ex)123");
+        printf(">>> ");
+        if (scanf("%d", &inputNum) == 0) {
+            printf("프로그램을 종료합니다.[문자입력]\n");
+            exit(0);
+        } else {
+            if (inputNum > 100 && inputNum < 1000) {
+                temp = inputNum;
+                units = temp % 10;
+                temp /= 10;
+                tens = temp % 10;
+                temp /= 10;
+                hunds = temp;
+                if (units == 0 || tens == 0 || hunds == 0) {
+                    printf("*경고! 각 자리 숫자는 1~9의 수입니다.\n");
+                    printf("\n");
+                } else {
+                    if (units != hunds && units != tens && tens != hunds) {
+                        // 입력값 전달
+                        sprintf(buf, "%d", inputNum);
+                        lseek(gfd[1], (off_t)0, SEEK_SET);
+                        write(gfd[1], &buf, strlen(buf));
+                        memset(buf, 0x00, MAX_BUF_SIZE);
+
+                        // get sign
+                        lseek(gfd[0], (off_t)0, SEEK_SET);
+                        read(gfd[0], &sign, sizeof(char));
+
+                        switch (sign) {
+                        case '1': // 진행
+                            sign = '\0';
+                            lseek(gfd[0], (off_t)0, SEEK_SET);
+                            read(gfd[0], &strike, sizeof(char));
+                            lseek(gfd[0], (off_t)0, SEEK_SET);
+                            read(gfd[0], &ball, sizeof(char));
+
+                            printf("%c스트라이크 %c볼입니다.\n", strike, ball);
+                            printf("\n");
+
+                            num++;
+                            break;
+
+                        case '2': // 승리
+                            sign = '\0';
+                            puts("승리했습니다!");
+                            printf("\n");
+                            return;
+                        case '3': // 패배
+                            sign = '\0';
+                            puts("패배했습니다..");
+                            printf("\n");
+                            return;
+                        default:
+                            break;
+                        }
+                    } else {
+                        printf("*경고! 각 자리 숫자는 중복되면 안됩니다.\n");
+                        printf("\n");
+                    }
+                }
+            } else {
+                printf("*경고! 세자리 수를 입력해주세요\n");
+                printf("\n");
+            }
+        }
+    }
+    close(gfd[0]);
+    close(gfd[1]);
+}
+void record() {}
+void ranking() {}
+void help() {}
