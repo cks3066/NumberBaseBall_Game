@@ -6,6 +6,25 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define PERMS 0666
+
+#define MAX_BUF_SIZE 32
+#define MAX_NAME_SIZE 10
+#define MAX_PWD_SIZE 10
+
+// 로그인, 성공시 1, 실패시 0반환
+// 입력한 정보를 서버에 저장된 정보화 비교
+int signIn();
+
+// 회원가입，성공시 1, 실패시　0반환
+// 입력한 정보를 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #define MAX_BUF_SIZE 32 + 1
 #define PERMS 0666
 
@@ -98,4 +117,3 @@ void game() {
     close(fd[0]);
     close(fd[1]);
 }
-
