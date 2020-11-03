@@ -23,9 +23,9 @@ typedef struct _User {
 void signUp();
 int signIn();
 void signChoice();
+void game();
 
 /***********정의할 함수***********/
-void game();
 void record();
 void ranking();
 void help();
