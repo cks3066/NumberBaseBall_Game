@@ -1,15 +1,3 @@
-use signal(SIGINT, signalHandler)
-
-notify diffrence puts() with printf()
-
-do not use STDOUT file descriptor to send & receive data
-then, just use write() and read() to get and push buffer
-
-make the Main user interface
-& sign up, sign in systems
-
-how to send the data includes winning or loosing, when games end;
-
 //　파이프　생성
     //　버퍼　생성　［읽기　쓰기용］
 
@@ -51,3 +39,7 @@ how to send the data includes winning or loosing, when games end;
 
     // 도움말，　게임방법，　채팅　기능　등　구현　가능
 
+use signal(SIGINT, signalHandler)
+
+do not use STDOUT file descriptor to send & receive data
+then, just use write() and read() to get and push buffer
