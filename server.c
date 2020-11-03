@@ -328,7 +328,7 @@ void game() {
         int strike = 0;
         int ball = 0;
 
-        printf("%d번째 시도\n", num);
+        printf("%d번째 시도\n", num++);
 
         // 유저 입력 read
         lseek(gfd[1], (off_t)0, SEEK_SET);
@@ -356,7 +356,7 @@ void game() {
             }
         }
         // 결과 전달 sign   게임진행:1  정답:2  패배:3
-        if (num > 9) { // 서버 승리
+        if (num > 9 && strike != 3) { // 서버 승리
             puts("서버 승리");
             printf("\n");
             sign[0] = '3';
@@ -392,8 +392,6 @@ void game() {
                 lseek(gfd[0], (off_t)0, SEEK_SET);
                 write(gfd[0], &buf, strlen(buf));
                 memset(buf, 0x00, MAX_BUF_SIZE);
-
-                num++;
             }
         }
     }
