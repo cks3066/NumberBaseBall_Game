@@ -47,6 +47,7 @@ int main() {
     fd[1] = open("clientWR", O_WRONLY);
 
     while (1) {
+        system("clear");
         printf("숫자야구게임에 오신 걸 환영합니다\n");
 
         // 로그인 성공 시 종료됨.
@@ -57,8 +58,9 @@ int main() {
             int choice;
             int whilebrk = 0;
             char sign[1] = {0};
-
-            puts(" ************************* 메인화면");
+            system("clear");
+            puts(" ************************* 메인화면 "
+                 "************************* ");
             puts("게임시작 1번，전적확인 2번, 랭킹확인 3번, 도움말 4번, "
                  "로그아웃 "
                  "5번");
@@ -67,36 +69,44 @@ int main() {
 
             switch (choice) {
             case 1: // game
+                system("clear");
                 sign[0] = '1';
                 lseek(fd[1], (off_t)0, SEEK_SET);
                 write(fd[1], (char *)sign, sizeof(char));
                 game();
                 break;
             case 2: // record
+                system("clear");
                 puts("record");
                 printf("\n");
                 sign[0] = '2';
                 lseek(fd[1], (off_t)0, SEEK_SET);
                 write(fd[1], (char *)sign, sizeof(char));
                 record();
+                sleep(2);
                 break;
             case 3: // ranking
+                system("clear");
                 puts("ranking");
                 printf("\n");
                 sign[0] = '3';
                 lseek(fd[1], (off_t)0, SEEK_SET);
                 write(fd[1], (char *)sign, sizeof(char));
                 ranking();
+                sleep(2);
                 break;
             case 4: // help
+                system("clear");
                 puts("help");
                 printf("\n");
                 sign[0] = '4';
                 lseek(fd[1], (off_t)0, SEEK_SET);
                 write(fd[1], (char *)sign, sizeof(char));
                 help();
+                sleep(2);
                 break;
             case 5: // logout
+                system("clear");
                 puts("logout");
                 printf("\n");
                 sign[0] = '5';
@@ -122,8 +132,9 @@ void signChoice() {
     char sign[1] = {0};
 
     while (1) {
-        printf("\n");
-        puts(" ************************* 로그인 선택창");
+        system("clear");
+        puts(" ************************* 로그인 선택창 "
+             "************************* ");
         puts("로그인 1번，회원가입 2번");
         printf(">>> ");
         scanf("%d", &choice);
@@ -133,6 +144,7 @@ void signChoice() {
         // 회원가입 : 1
         switch (choice) {
         case 1:
+            system("clear");
             sign[0] = '0';
             lseek(fd[1], (off_t)0, SEEK_SET);
             write(fd[1], (char *)sign, sizeof(char));
@@ -141,6 +153,7 @@ void signChoice() {
             }
             break;
         case 2:
+            system("clear");
             sign[0] = '1';
             lseek(fd[1], (off_t)0, SEEK_SET);
             write(fd[1], (char *)sign, sizeof(char));
@@ -160,7 +173,7 @@ int signIn() {
     };
     char sign;
 
-    puts(" ************************* 로그인");
+    puts(" ************************* 로그인 ************************* ");
     printf("ID : ");
     if (scanf("%s", buf) > 0) {
         lseek(fd[1], (off_t)0, SEEK_SET);
@@ -171,6 +184,7 @@ int signIn() {
     } else {
         memset(buf, 0x00, MAX_BUF_SIZE);
         printf("아이디가 너무 깁니다.\n");
+        sleep(2);
         return 0;
     }
 
@@ -180,12 +194,14 @@ int signIn() {
         memset(buf, 0x00, MAX_BUF_SIZE);
         puts("아이디를 생성해주세요");
         printf("\n");
+        sleep(2);
         return 0;
     case '1':
         sign = '\0';
         memset(buf, 0x00, MAX_BUF_SIZE);
         puts("일치하는 아이디가 없습니다.");
         printf("\n");
+        sleep(2);
         return 0;
     case '2':
         sign = '\0';
@@ -199,6 +215,7 @@ int signIn() {
         } else {
             memset(buf, 0x00, MAX_BUF_SIZE);
             printf("비밀번호가 너무 깁니다.\n");
+            sleep(2);
             return 0;
         }
         break;
@@ -212,12 +229,15 @@ int signIn() {
         memset(buf, 0x00, MAX_BUF_SIZE);
         puts("비밀번호가　틀렸습니다.");
         printf("\n");
+        sleep(2);
         return 0;
     case '1':
         sign = '\0';
         memset(buf, 0x00, MAX_BUF_SIZE);
-        puts(" ************************* 로그인 완료");
+        puts(" ************************* 로그인 완료 "
+             "************************* ");
         printf("\n");
+        sleep(2);
         return 1;
     default:
         break;
@@ -233,7 +253,7 @@ void signUp() {
     };
     char sign;
 
-    puts(" ************************* 회원 가입");
+    puts(" ************************* 회원 가입 ************************* ");
     printf("ID : ");
     if (scanf("%s", buf) > 0) {
         lseek(fd[1], (off_t)0, SEEK_SET);
@@ -241,6 +261,7 @@ void signUp() {
         memset(buf, 0x00, MAX_BUF_SIZE);
     } else {
         printf("아이디가 너무 깁니다.\n");
+        sleep(2);
     }
 
     // server로부터 입력된 buf에 따른 sign을 받아옴 0 중복, 1 미중복
@@ -250,6 +271,7 @@ void signUp() {
     if (sign == '0') { // 중복이면
         sign = '\0';
         puts("이미 존재하는 ID입니다.");
+        sleep(2);
         return;
     } else if (sign == '1') {
         sign = '\0';
@@ -260,9 +282,12 @@ void signUp() {
             memset(buf, 0x00, MAX_BUF_SIZE);
         } else {
             printf("비밀번호가 너무 깁니다.\n");
+            sleep(2);
         }
-        puts(" ************************* 회원가입 완료");
+        puts(" ************************* 회원가입 완료 "
+             "************************* ");
         printf("\n");
+        sleep(2);
     }
 }
 
@@ -303,6 +328,7 @@ void game() {
                 if (units == 0 || tens == 0 || hunds == 0) {
                     printf("*경고! 각 자리 숫자는 1~9의 수입니다.\n");
                     printf("\n");
+                    sleep(2);
                 } else {
                     if (units != hunds && units != tens && tens != hunds) {
                         // 입력값 전달
@@ -338,6 +364,7 @@ void game() {
                             sign = '\0';
                             puts("패배했습니다..");
                             printf("\n");
+                            sleep(2);
                             return;
                         default:
                             break;
@@ -345,11 +372,13 @@ void game() {
                     } else {
                         printf("*경고! 각 자리 숫자는 중복되면 안됩니다.\n");
                         printf("\n");
+                        sleep(2);
                     }
                 }
             } else {
                 printf("*경고! 세자리 수를 입력해주세요\n");
                 printf("\n");
+                sleep(2);
             }
         }
     }
@@ -359,3 +388,4 @@ void game() {
 void record() {}
 void ranking() {}
 void help() {}
+
