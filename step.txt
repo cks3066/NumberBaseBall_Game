@@ -38,8 +38,3 @@
         // 랭킹　출력
 
     // 도움말，　게임방법，　채팅　기능　등　구현　가능
-
-use signal(SIGINT, signalHandler)
-
-do not use STDOUT file descriptor to send & receive data
-then, just use write() and read() to get and push buffer
