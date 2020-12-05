@@ -1,11 +1,15 @@
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/msg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "Msg.h"
 
 #define PERMS 0666
 #define MAX_BUF_SIZE 32
@@ -18,7 +22,12 @@ typedef struct _User {
     char pwd[MAX_PWD_SIZE + 1];
     int win;
     int lose;
+    int rank;
 } User;
+
+void Init();
+void getUsrData();
+void writeUsrData();
 
 void signUp();
 int signIn();
@@ -27,8 +36,12 @@ void game();
 
 /***********정의할 함수***********/
 void record();
+void set_rank();
 void ranking();
 void help();
+
+void signalHandler(int signum);
+void EndFunc();
 
 /***********전역변수***********/
 size_t num = 0; // 생성된 User 구조체 갯수
@@ -37,16 +50,21 @@ int loginNum; // 로그인에 이용된 구조체 배열 key
 int fd[2] = {
     0,
 };
+QuestSign questsign;
+ResponseSign responsesigh;
+QuestGame questgame;
+ResponseGame responsegame;
+key_t mykey;
+long mspid;
 
 /***********메인 함수***********/
 int main() {
-    mkfifo("serverWR", PERMS); //서버 입력용 파이프라인(유저 출력)
-    mkfifo("clientWR", PERMS); //유저 입력용 파이프라인(서버 출력)
+    atexit(EndFunc);
+    signal(SIGINT, signalHandler);
+    Init();
+    getUsrData();
 
     while (1) { // login
-
-        fd[0] = open("serverWR", O_WRONLY);
-        fd[1] = open("clientWR", O_RDONLY);
 
         signChoice(); // 로그인 성공 시 종료됨.
 
@@ -54,36 +72,32 @@ int main() {
             int whilebrk = 0;
             char sign;
 
-            fd[0] = open("serverWR", O_WRONLY);
-            fd[1] = open("clientWR", O_RDONLY);
-
             puts("메인화면 waiting...");
 
-            lseek(fd[1], (off_t)0, SEEK_SET);
-            read(fd[1], &sign, sizeof(char));
+            msgrcv(mspid, &questsign, QUEST_SIZE, 0, 0);
 
             // 유저가 보내는 sign을 받아서 해당 함수 실행
-            switch (sign) {
-            case '1':
+            switch (questsign.service) {
+            case PLAY_GAME:
                 puts(">>> game");
                 game();
                 break;
-            case '2':
+            case RECORD:
                 puts(">>> record");
                 printf("\n");
                 record();
                 break;
-            case '3':
+            case RAKING:
                 puts(">>> ranking");
                 printf("\n");
                 ranking();
                 break;
-            case '4':
+            case HELP:
                 puts(">>> help");
                 printf("\n");
                 help();
                 break;
-            case '5':
+            case SIGN_OUT:
                 puts(">>> logout");
                 printf("\n");
                 whilebrk = 1;
@@ -97,9 +111,16 @@ int main() {
         }
     }
 
-    close(fd[0]);
-    close(fd[1]);
     return 0;
+}
+
+void Init() {
+    mykey = ftok("./Msg.h", 1);
+    mspid = msgget(mykey, IPC_CREAT | 0600);
+    memset(&questsign, 0x00, sizeof(questsign));
+    memset(&responsesigh, 0x00, sizeof(responsesigh));
+    memset(&questgame, 0x00, sizeof(questgame));
+    memset(&responsegame, 0x00, sizeof(responsegame));
 }
 
 /***********회원가입***********/
@@ -113,16 +134,14 @@ void signUp() {
     puts(">> 회원가입");
 
     printf("입력받은 ID는 : ");
-    lseek(fd[1], (off_t)0, SEEK_SET);
-    read(fd[1], (char *)buf, MAX_BUF_SIZE);
-    printf("%s\n", buf);
+    printf("%s\n", questsign.UsrId);
 
     ////////////////////////////////////////////
     //기존　users.name 과 중복체크
     ///////////////////////////////////////////
     if (num != 0) { // 등록된 유저 정보가 있다면
         for (int i = 0; i < num; i++) {
-            if (strcmp(users[i].name, buf) == 0) //중복 존재시
+            if (strcmp(users[i].name, questsign.UsrId) == 0) //중복 존재시
                 overlap = 1;
         }
     }
@@ -131,39 +150,31 @@ void signUp() {
     // 중복 없을 시 1   sign
     if (overlap == 1) {
         // 유저에게 overlap sign 전달
-        sign[0] = '0';
-        lseek(fd[0], (off_t)0, SEEK_SET);
-        write(fd[0], (char *)sign, sizeof(char));
-
-        memset(buf, 0x00, MAX_BUF_SIZE);
-        memset(sign, 0x00, sizeof(char));
+        responsesigh.responsceData[0] = 0;
+        msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
 
         puts("회원가입 실패");
         printf("\n");
     } else { // num이 0인 경우도 overlap이 0이기 때문에 포함
         // 유저에게 non-overlap sign 전달
-        sign[0] = '1';
-        lseek(fd[0], (off_t)0, SEEK_SET);
-        write(fd[0], (char *)sign, sizeof(char));
+        responsesigh.responsceData[0] = 1;
+        msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
 
-        strcpy(users[num].name, buf);
-
-        memset(buf, 0x00, MAX_BUF_SIZE);
-        memset(sign, 0x00, sizeof(char));
+        strcpy(users[num].name, questsign.UsrId);
 
         // Password
         printf("입력받은 PASSWORD는 : ");
-        lseek(fd[1], (off_t)0, SEEK_SET);
-        read(fd[1], (char *)buf, MAX_BUF_SIZE);
-        printf("%s\n", buf);
-        strcpy(users[num].pwd, buf);
+        printf("%s\n", questsign.UsrPassword);
+        strcpy(users[num].pwd, questsign.UsrPassword);
 
-        memset(buf, 0x00, MAX_BUF_SIZE);
-
+        users[num].win = 0;
+        users[num].lose = 0;
         puts("회원가입 성공");
         printf("\n");
 
         num++;
+        users[num - 1].rank = num;
+        writeUsrData();
     }
 }
 
@@ -181,45 +192,31 @@ int signIn() {
 
     puts(">> 로그인");
     printf("입력받은 ID는 : ");
-    lseek(fd[1], (off_t)0, SEEK_SET);
-    read(fd[1], (char *)buf, MAX_BUF_SIZE);
-    printf("%s\n", buf);
+    printf("%s\n", questsign.UsrId);
     // 아이디가 아예　없는 경우 : 0
     // 해당하는 아이디가 없는 경우 : 1
     // 해당하는 아이디가 있는 경우 : 2
     if (num == 0) {
         puts("None");
         printf("\n");
-        sign[0] = '0';
-        lseek(fd[0], (off_t)0, SEEK_SET);
-        write(fd[0], (char *)sign, sizeof(char));
-
-        memset(buf, 0x00, MAX_BUF_SIZE);
-        memset(sign, 0x00, sizeof(char));
-
+        responsesigh.responsceData[0] = 0;
+        msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
         return 0;
     } else {
         for (int i = 0; i < num; i++) {
-            if (strcmp(buf, users[i].name) == 0) {
-                sign[0] = '2';
-                lseek(fd[0], (off_t)0, SEEK_SET);
-                write(fd[0], (char *)sign, sizeof(char));
-
-                memset(buf, 0x00, MAX_BUF_SIZE);
-                memset(sign, 0x00, sizeof(char));
+            if (strcmp(questsign.UsrId, users[i].name) == 0) {
+                responsesigh.responsceData[0] = 2;
+                msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
 
                 saveNum = i;
+                sleep(1);
                 break;
             }
         }
         if (saveNum == -1) {
             printf("\n");
-            sign[0] = '1';
-            lseek(fd[0], (off_t)0, SEEK_SET);
-            write(fd[0], (char *)sign, sizeof(char));
-
-            memset(buf, 0x00, MAX_BUF_SIZE);
-            memset(sign, 0x00, sizeof(char));
+            responsesigh.responsceData[0] = 1;
+            msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
 
             return 0;
         }
@@ -228,31 +225,20 @@ int signIn() {
     // 로그인 성공 : 1
     if (saveNum != -1) {
         printf("입력받은 PASSWORD는 : ");
-        lseek(fd[1], (off_t)0, SEEK_SET);
-        read(fd[1], (char *)buf, MAX_BUF_SIZE);
-        printf("%s\n", buf);
-        if (strcmp(buf, users[saveNum].pwd) == 0) {
+        printf("%s\n", questsign.UsrPassword);
+        if (strcmp(questsign.UsrPassword, users[saveNum].pwd) == 0) {
             puts("로그인 성공");
             printf("\n");
             loginNum = saveNum;
-            sign[0] = '1';
-            lseek(fd[0], (off_t)0, SEEK_SET);
-            write(fd[0], (char *)sign, sizeof(char));
-
-            memset(buf, 0x00, MAX_BUF_SIZE);
-            memset(sign, 0x00, sizeof(char));
+            responsesigh.responsceData[0] = 1;
+            msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
 
             return 1;
         } else {
             puts("패스워드 오류");
             printf("\n");
-            sign[0] = '0';
-            lseek(fd[0], (off_t)0, SEEK_SET);
-            write(fd[0], (char *)sign, sizeof(char));
-
-            memset(buf, 0x00, MAX_BUF_SIZE);
-            memset(sign, 0x00, sizeof(char));
-
+            responsesigh.responsceData[0] = 0;
+            msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
             return 0;
         }
     }
@@ -260,23 +246,19 @@ int signIn() {
 
 /***********로그인 ING***********/
 void signChoice() {
-    char sign;
 
     while (1) {
         puts("login 대기중...");
 
-        lseek(fd[1], (off_t)0, SEEK_SET);
-        read(fd[1], &sign, sizeof(char));
-        switch (sign) {
-        case '0':
+        msgrcv(mspid, &questsign, QUEST_SIZE, 0, 0);
+        responsesigh.pid = questsign.pid;
+        switch (questsign.service) {
+        case SIGN_IN:
             if (signIn() == 1) {
-
-                close(fd[0]);
-                close(fd[1]);
                 return;
             }
             break;
-        case '1':
+        case SIGN_UP:
             signUp();
             break;
         default:
@@ -305,9 +287,6 @@ void game() {
     int target = 0;
     int temp;
 
-    gfd[0] = open("serverWR", O_WRONLY);
-    gfd[1] = open("clientWR", O_RDONLY);
-
     srand(time(NULL));
     serverNum[2] = (rand() % 9) + 1; //숫자야구용 랜덤 세자리수 생성
     while (1) {
@@ -330,11 +309,9 @@ void game() {
 
         printf("%d번째 시도\n", num++);
 
-        // 유저 입력 read
-        lseek(gfd[1], (off_t)0, SEEK_SET);
-        read(gfd[1], (char *)buf, MAX_BUF_SIZE);
-        rcvNum = atoi(buf); // 읽은 buf int로 rcvNum 에 저장 (세자리 수)
-        memset(buf, 0x00, MAX_BUF_SIZE); // buf 클리어
+        msgrcv(mspid, &questgame, QUEST_GAME_SIZE, 0, 0);
+        responsegame.pid = questgame.pid;
+        rcvNum = questgame.target; // 읽은 buf int로 rcvNum 에 저장 (세자리 수)
 
         printf("입력받은 숫자 : %d\n", rcvNum);
 
@@ -359,46 +336,148 @@ void game() {
         if (num > 9 && strike != 3) { // 서버 승리
             puts("서버 승리");
             printf("\n");
-            sign[0] = '3';
-            lseek(gfd[0], (off_t)0, SEEK_SET);
-            write(gfd[0], (char *)sign, sizeof(char));
-            memset(sign, 0x00, sizeof(char));
+            responsegame.answer = 3;
+            msgsnd(mspid, &responsegame, RESPONSE_GAME_SIZE, 0);
+            users[loginNum].lose++;
+            writeUsrData();
             return;
         } else { // 유저 승리
             if (strike == 3) {
                 puts("유저 승리");
                 printf("\n");
-                sign[0] = '2';
-                lseek(gfd[0], (off_t)0, SEEK_SET);
-                write(gfd[0], (char *)sign, sizeof(char));
-                memset(sign, 0x00, sizeof(char));
+                responsegame.answer = 2;
+                msgsnd(mspid, &responsegame, RESPONSE_GAME_SIZE, 0);
+                users[loginNum].win++;
+                set_rank();
+                writeUsrData();
                 return;
             } else { // 진행
                 puts("진행");
                 printf("\n");
-                sign[0] = '1';
-                lseek(gfd[0], (off_t)0, SEEK_SET);
-                write(gfd[0], (char *)sign, sizeof(char));
-                memset(sign, 0x00, sizeof(char));
-
-                // 스트라이크 전달
-                sprintf(buf, "%d", strike);
-                lseek(gfd[0], (off_t)0, SEEK_SET);
-                write(gfd[0], &buf, strlen(buf));
-                memset(buf, 0x00, MAX_BUF_SIZE);
-
-                // 볼 전달
-                sprintf(buf, "%d", ball);
-                lseek(gfd[0], (off_t)0, SEEK_SET);
-                write(gfd[0], &buf, strlen(buf));
-                memset(buf, 0x00, MAX_BUF_SIZE);
+                // // 볼 스트라이크 전달
+                responsegame.ball = ball;
+                responsegame.strike = strike;
+                responsegame.answer = 1;
+                msgsnd(mspid, &responsegame, RESPONSE_GAME_SIZE, 0);
             }
         }
     }
-    close(gfd[0]);
-    close(gfd[1]);
 }
 
-void record() {}
-void ranking() {}
-void help() {}
+void getUsrData() {
+    FILE *pFile = NULL;
+    pFile = fopen("./UserData.txt", "r");
+    if (pFile == NULL)
+        return;
+    if (pFile != NULL) {
+        char strTemp[MAX_BUF_SIZE];
+        char *pStr;
+        while (!feof(pFile)) {
+            pStr = fgets(strTemp, sizeof(strTemp), pFile);
+            if (pStr == NULL)
+                break;
+            for (int i = 0; i < 5; i++) {
+                switch (i) {
+                case 0:
+                    strcpy(users[num].name, strtok(pStr, " "));
+                    break;
+                case 1:
+                    strcpy(users[num].pwd, strtok(NULL, " "));
+                    break;
+                case 2:
+                    users[num].win = atoi(strtok(NULL, " "));
+                    break;
+                case 3:
+                    users[num].lose = atoi(strtok(NULL, " "));
+                    break;
+                case 4:
+                    users[num].rank = atoi(strtok(NULL, " "));
+                }
+            }
+            num++;
+        }
+        fclose(pFile);
+    } else {
+        printf("no data let's sign up");
+    }
+}
+
+void writeUsrData() {
+    char buf[MAX_BUF_SIZE];
+    char userdata[MAX_BUF_SIZE];
+    fd[0] = open("./UserData.txt", O_WRONLY);
+    for (int i = 0; i < num; i++) {
+        strcpy(userdata, users[i].name);
+        strcat(userdata, " ");
+        strcat(userdata, users[i].pwd);
+        strcat(userdata, " ");
+        sprintf(buf, "%d ", users[i].win);
+        strcat(userdata, buf);
+        sprintf(buf, "%d ", users[i].lose);
+        strcat(userdata, buf);
+        sprintf(buf, "%d\n", users[i].rank);
+        strcat(userdata, buf);
+
+        write(fd[0], (char *)userdata, strlen(userdata));
+    }
+    close(fd[0]);
+}
+
+void record() {
+    printf("유저의 전적을 보여줍니다.\n");
+    strcpy(responsesigh.UsrId, users[loginNum].name);
+    responsesigh.win = users[loginNum].win;
+    responsesigh.lose = users[loginNum].lose;
+    msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
+    sleep(2);
+}
+void ranking() {
+    printf("랭킹을 보여줍니다.\n");
+    set_rank();
+    strcpy(responsesigh.UsrId, users[loginNum].name);
+    responsesigh.win = users[loginNum].rank;
+    msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
+    sleep(1);
+}
+
+void set_rank() {
+    strcpy(questsign.UsrId, users[loginNum].name);
+    User temp;
+    for (int i = 0; i < num - 1; i++) {
+        for (int j = 0; j < num - 1; j++) {
+            if (users[j].win < users[j + 1].win) {
+                temp = users[j];
+                users[j] = users[j + 1];
+                users[j + 1] = temp;
+            }
+        }
+    }
+    for (int i = 0; i < num; i++) {
+        users[i].rank = i + 1;
+    }
+
+    for (int i = 0; i < num; i++) {
+        if (strcmp(users[i].name, questsign.UsrId) == 0) //현재 로그인한 아이디
+            loginNum = i;
+    }
+}
+
+void help() {
+    printf("숫자야구 도움말을 보여줍니다.\n");
+    fd[0] = open("./help.txt", O_RDONLY);
+    read(fd[0], &responsesigh.responsceData, SIZE);
+    msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
+    sleep(1);
+}
+
+void signalHandler(int signum) {
+    if (signum == SIGINT) {
+        msgctl(mspid, IPC_RMID, NULL);
+        exit(0);
+    }
+}
+
+void EndFunc() {
+    msgctl(mspid, IPC_RMID, NULL);
+    exit(0);
+}

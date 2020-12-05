@@ -2,15 +2,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/msg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include "Msg.h"
 
 #define PERMS 0666
 
 #define MAX_BUF_SIZE 32
 #define MAX_NAME_SIZE 10
 #define MAX_PWD_SIZE 10
+
+QuestSign questsign;
+ResponseSign responsesign;
+QuestGame questgame;
+ResponseGame responsegame;
+key_t mykey;
+long mspid;
+
+void Init(); //메시지 큐 할당
 
 // 로그인, 성공시 1, 실패시 0반환
 // 입력한 정보를 서버에 저장된 정보화 비교
@@ -40,11 +52,7 @@ int fd[2] = {
 
 /***********메인함수***********/
 int main() {
-
-    // 서버 입력용 파이프라인(유저 출력)
-    fd[0] = open("serverWR", O_RDONLY);
-    //유저 입력용 파이프라인(서버 출력)
-    fd[1] = open("clientWR", O_WRONLY);
+    Init();
 
     while (1) {
         system("clear");
@@ -59,49 +67,39 @@ int main() {
             int whilebrk = 0;
             char sign[1] = {0};
             system("clear");
-            puts(" ************************* 메인화면 "
-                 "************************* ");
-            puts("게임시작 1번，전적확인 2번, 랭킹확인 3번, 도움말 4번, "
+            puts(" ***************************** 메인화면 "
+                 "***************************** ");
+            puts("  게임시작 1번，전적확인 2번, 랭킹확인 3번, 도움말 4번, "
                  "로그아웃 "
                  "5번");
-            printf(">>> ");
+            printf("  >>> ");
             scanf("%d", &choice);
 
             switch (choice) {
             case 1: // game
                 system("clear");
-                sign[0] = '1';
-                lseek(fd[1], (off_t)0, SEEK_SET);
-                write(fd[1], (char *)sign, sizeof(char));
+                questsign.service = PLAY_GAME;
+                msgsnd(mspid, &questsign, QUEST_SIZE, 0);
                 game();
                 break;
             case 2: // record
                 system("clear");
-                puts("record");
-                printf("\n");
-                sign[0] = '2';
-                lseek(fd[1], (off_t)0, SEEK_SET);
-                write(fd[1], (char *)sign, sizeof(char));
+                questsign.service = RECORD;
+                msgsnd(mspid, &questsign, QUEST_SIZE, 0);
                 record();
-                sleep(2);
+                sleep(1);
                 break;
             case 3: // ranking
                 system("clear");
-                puts("ranking");
-                printf("\n");
-                sign[0] = '3';
-                lseek(fd[1], (off_t)0, SEEK_SET);
-                write(fd[1], (char *)sign, sizeof(char));
+                questsign.service = RAKING;
+                msgsnd(mspid, &questsign, QUEST_SIZE, 0);
                 ranking();
                 sleep(2);
                 break;
             case 4: // help
                 system("clear");
-                puts("help");
-                printf("\n");
-                sign[0] = '4';
-                lseek(fd[1], (off_t)0, SEEK_SET);
-                write(fd[1], (char *)sign, sizeof(char));
+                questsign.service = HELP;
+                msgsnd(mspid, &questsign, QUEST_SIZE, 0);
                 help();
                 sleep(2);
                 break;
@@ -109,9 +107,9 @@ int main() {
                 system("clear");
                 puts("logout");
                 printf("\n");
-                sign[0] = '5';
-                lseek(fd[1], (off_t)0, SEEK_SET);
-                write(fd[1], (char *)sign, sizeof(char));
+                questsign.service = SIGN_OUT;
+                msgsnd(mspid, &questsign, QUEST_SIZE, 0);
+                sleep(1);
                 whilebrk = 1;
                 break;
             default:
@@ -121,9 +119,19 @@ int main() {
                 break;
         }
     }
-    close(fd[0]);
-    close(fd[1]);
     return 0;
+}
+
+/**********메시지 큐 ***********/
+void Init() {
+    mykey = ftok("./Msg.h", 1);
+    mspid = msgget(mykey, IPC_CREAT);
+    memset(&questsign, 0x00, sizeof(questsign));
+    memset(&responsesign, 0x00, sizeof(responsesign));
+    memset(&questgame, 0x00, sizeof(questgame));
+    memset(&responsegame, 0x00, sizeof(responsegame));
+    questgame.pid = getpid();
+    questsign.pid = getpid();
 }
 
 /***********로그인 UI***********/
@@ -135,8 +143,8 @@ void signChoice() {
         system("clear");
         puts(" ************************* 로그인 선택창 "
              "************************* ");
-        puts("로그인 1번，회원가입 2번");
-        printf(">>> ");
+        puts("  로그인 1번，    회원가입 2번");
+        printf("  >>> ");
         scanf("%d", &choice);
         printf("\n");
 
@@ -145,24 +153,17 @@ void signChoice() {
         switch (choice) {
         case 1:
             system("clear");
-            sign[0] = '0';
-            lseek(fd[1], (off_t)0, SEEK_SET);
-            write(fd[1], (char *)sign, sizeof(char));
             if (signIn() == 1) {
                 return;
             }
             break;
         case 2:
             system("clear");
-            sign[0] = '1';
-            lseek(fd[1], (off_t)0, SEEK_SET);
-            write(fd[1], (char *)sign, sizeof(char));
             signUp();
             break;
         default:
             break;
         }
-        memset(sign, 0x00, sizeof(char));
     }
 }
 
@@ -173,69 +174,52 @@ int signIn() {
     };
     char sign;
 
+    questsign.service = SIGN_IN;
     puts(" ************************* 로그인 ************************* ");
-    printf("ID : ");
-    if (scanf("%s", buf) > 0) {
-        lseek(fd[1], (off_t)0, SEEK_SET);
-        write(fd[1], &buf, strlen(buf));
-        memset(buf, 0x00, MAX_BUF_SIZE);
-        lseek(fd[0], (off_t)0, SEEK_SET);
-        read(fd[0], &sign, sizeof(char));
-    } else {
-        memset(buf, 0x00, MAX_BUF_SIZE);
-        printf("아이디가 너무 깁니다.\n");
+    printf("                ID :        ");
+    scanf("%s", questsign.UsrId);
+    if (strlen(questsign.UsrId) > MAX_NAME_SIZE) {
+        printf("    #아이디가 너무 깁니다. 글자 수 제한은 10입니다#\n");
         sleep(2);
         return 0;
     }
-
-    switch (sign) {
-    case '0':
-        sign = '\0';
-        memset(buf, 0x00, MAX_BUF_SIZE);
-        puts("아이디를 생성해주세요");
+    printf("                PASSWORD :  ");
+    scanf("%s", questsign.UsrPassword);
+    if (strlen(questsign.UsrPassword) > MAX_PWD_SIZE) {
+        printf("    #비밀번호가 너무 깁니다. 글자 수 제한은 10입니다#\n");
+        sleep(2);
+        return 0;
+    }
+    msgsnd(mspid, &questsign, QUEST_SIZE, 0);
+    msgrcv(mspid, &responsesign, RESPONSE_SIZE, questsign.pid, 0);
+    switch (responsesign.responsceData[0]) {
+    case 0:
+        puts("              #아이디를 생성해주세요#");
         printf("\n");
         sleep(2);
         return 0;
-    case '1':
-        sign = '\0';
-        memset(buf, 0x00, MAX_BUF_SIZE);
-        puts("일치하는 아이디가 없습니다.");
+    case 1:
+        puts("            #일치하는 아이디가 없습니다#");
         printf("\n");
         sleep(2);
         return 0;
-    case '2':
-        sign = '\0';
-        printf("PASSWORD : ");
-        if (scanf("%s", buf) > 0) {
-            lseek(fd[1], (off_t)0, SEEK_SET);
-            write(fd[1], &buf, strlen(buf));
-            memset(buf, 0x00, MAX_BUF_SIZE);
-            lseek(fd[0], (off_t)0, SEEK_SET);
-            read(fd[0], &sign, sizeof(char));
-        } else {
-            memset(buf, 0x00, MAX_BUF_SIZE);
-            printf("비밀번호가 너무 깁니다.\n");
-            sleep(2);
-            return 0;
-        }
+    case 2:
         break;
     default:
         break;
     }
+    msgrcv(mspid, &responsesign, RESPONSE_SIZE, questsign.pid, 0);
     // Password에 대한 sign
-    switch (sign) {
-    case '0':
-        sign = '\0';
-        memset(buf, 0x00, MAX_BUF_SIZE);
-        puts("비밀번호가　틀렸습니다.");
+
+    switch (responsesign.responsceData[0]) {
+    case 0:
+        puts("              #비밀번호가　틀렸습니다#");
         printf("\n");
         sleep(2);
         return 0;
-    case '1':
-        sign = '\0';
-        memset(buf, 0x00, MAX_BUF_SIZE);
-        puts(" ************************* 로그인 완료 "
-             "************************* ");
+    case 1:
+        puts(" ********************** 로그인 완료 "
+             "********************** ");
         printf("\n");
         sleep(2);
         return 1;
@@ -253,41 +237,37 @@ void signUp() {
     };
     char sign;
 
-    puts(" ************************* 회원 가입 ************************* ");
-    printf("ID : ");
-    if (scanf("%s", buf) > 0) {
-        lseek(fd[1], (off_t)0, SEEK_SET);
-        write(fd[1], &buf, strlen(buf));
-        memset(buf, 0x00, MAX_BUF_SIZE);
-    } else {
-        printf("아이디가 너무 깁니다.\n");
-        sleep(2);
+    questsign.service = SIGN_UP;
+    puts("************************* 회원 가입 ************************* ");
+    printf("                ID :        ");
+    scanf("%s", questsign.UsrId);
+    if (strlen(questsign.UsrId) > MAX_NAME_SIZE) {
+        printf("  #아이디가 너무 깁니다. 글자 수 제한은 10입니다#\n");
+        sleep(1);
+        return;
     }
+    printf("                PASSWORD :  ");
+    scanf("%s", questsign.UsrPassword);
+    if (strlen(questsign.UsrPassword) > MAX_PWD_SIZE) {
+        printf(" #비밀번호가 너무 깁니다. 글자 수 제한은 10입니다#\n");
+        sleep(1);
+        return;
+    }
+    msgsnd(mspid, &questsign, QUEST_SIZE, 0);
+    msgrcv(mspid, &responsesign, RESPONSE_SIZE, questsign.pid, 0);
 
     // server로부터 입력된 buf에 따른 sign을 받아옴 0 중복, 1 미중복
-    lseek(fd[0], (off_t)0, SEEK_SET);
-    read(fd[0], &sign, sizeof(char));
 
-    if (sign == '0') { // 중복이면
-        sign = '\0';
-        puts("이미 존재하는 ID입니다.");
-        sleep(2);
+    if (responsesign.responsceData[0] == 0) { // 중복이면
+        // sign = '\0';
+        puts("              #이미 존재하는 ID입니다#");
+        sleep(1);
         return;
-    } else if (sign == '1') {
-        sign = '\0';
-        printf("PASSWORD : ");
-        if (scanf("%s", buf) > 0) {
-            lseek(fd[1], (off_t)0, SEEK_SET);
-            write(fd[1], &buf, strlen(buf));
-            memset(buf, 0x00, MAX_BUF_SIZE);
-        } else {
-            printf("비밀번호가 너무 깁니다.\n");
-            sleep(2);
-        }
-        puts(" ************************* 회원가입 완료 "
-             "************************* ");
+    } else if (responsesign.responsceData[0] == 1) {
+        puts("*********************** 회원가입 완료 "
+             "*********************** ");
         printf("\n");
-        sleep(2);
+        sleep(1);
     }
 }
 
@@ -305,64 +285,51 @@ void game() {
     int temp;
     char strike, ball;
 
-    gfd[0] = open("serverWR", O_RDONLY);
-    gfd[1] = open("clientWR", O_WRONLY);
-
     printf("게임 시작\n");
 
     while (1) {
         printf("-%d번째 시도-\n", num);
-        puts("공백없이 세자리 숫자 입력 ex)123");
-        printf(">>> ");
-        if (scanf("%d", &inputNum) == 0) {
-            printf("프로그램을 종료합니다.[문자입력]\n");
+        puts("  공백없이 세자리 숫자 입력 ex)123");
+        printf("    >>> ");
+        if (scanf("%d", &questgame.target) == 0) {
+            printf("    프로그램을 종료합니다.[문자입력]\n");
             exit(0);
         } else {
-            if (inputNum > 100 && inputNum < 1000) {
-                temp = inputNum;
+            if (questgame.target > 100 && questgame.target < 1000) {
+                temp = questgame.target;
                 units = temp % 10;
                 temp /= 10;
                 tens = temp % 10;
                 temp /= 10;
                 hunds = temp;
                 if (units == 0 || tens == 0 || hunds == 0) {
-                    printf("*경고! 각 자리 숫자는 1~9의 수입니다.\n");
+                    printf("    *경고! 각 자리 숫자는 1~9의 수입니다.\n");
                     printf("\n");
                     sleep(2);
                 } else {
                     if (units != hunds && units != tens && tens != hunds) {
                         // 입력값 전달
-                        sprintf(buf, "%d", inputNum);
-                        lseek(gfd[1], (off_t)0, SEEK_SET);
-                        write(gfd[1], &buf, strlen(buf));
-                        memset(buf, 0x00, MAX_BUF_SIZE);
+                        msgsnd(mspid, &questgame, QUEST_GAME_SIZE, 0);
+                        msgrcv(mspid, &responsegame, RESPONSE_GAME_SIZE,
+                               questgame.pid, 0);
 
-                        // get sign
-                        lseek(gfd[0], (off_t)0, SEEK_SET);
-                        read(gfd[0], &sign, sizeof(char));
+                        switch (responsegame.answer) {
+                        case 1: // 진행
 
-                        switch (sign) {
-                        case '1': // 진행
-                            sign = '\0';
-                            lseek(gfd[0], (off_t)0, SEEK_SET);
-                            read(gfd[0], &strike, sizeof(char));
-                            lseek(gfd[0], (off_t)0, SEEK_SET);
-                            read(gfd[0], &ball, sizeof(char));
-
-                            printf("%c스트라이크 %c볼입니다.\n", strike, ball);
+                            printf("    %d스트라이크 %d볼입니다.\n",
+                                   responsegame.strike, responsegame.ball);
                             printf("\n");
 
                             num++;
                             break;
 
-                        case '2': // 승리
-                            sign = '\0';
-                            puts("승리했습니다!");
+                        case 2: // 승리
+                            puts("  승리했습니다!");
                             printf("\n");
+                            sleep(2);
                             return;
-                        case '3': // 패배
-                            sign = '\0';
-                            puts("패배했습니다..");
+                        case 3: // 패배
+                            puts("  패배했습니다..");
                             printf("\n");
                             sleep(2);
                             return;
@@ -370,22 +337,46 @@ void game() {
                             break;
                         }
                     } else {
-                        printf("*경고! 각 자리 숫자는 중복되면 안됩니다.\n");
+                        printf(
+                            "    *경고! 각 자리 숫자는 중복되면 안됩니다.\n");
                         printf("\n");
                         sleep(2);
                     }
                 }
             } else {
-                printf("*경고! 세자리 수를 입력해주세요\n");
+                printf("    *경고! 세자리 수를 입력해주세요\n");
                 printf("\n");
                 sleep(2);
             }
         }
     }
-    close(gfd[0]);
-    close(gfd[1]);
 }
-void record() {}
-void ranking() {}
-void help() {}
+void record() {
+    msgrcv(mspid, &responsesign, RESPONSE_SIZE, questsign.pid, 0);
+    printf(" ***************** 내 전적 *****************\n\n");
+    printf("            사용자 아이디 : %s\n", responsesign.UsrId);
+    printf("            승  리  :   %d\n", responsesign.win);
+    printf("            패  배  :   %d\n\n", responsesign.lose);
+    printf(" *******************************************\n");
+    char skip;
+    printf("아무 키나 입력하세요.");
+    scanf("%s", &skip);
+}
+void ranking() {
+    msgrcv(mspid, &responsesign, RESPONSE_SIZE, questsign.pid, 0);
+    printf(" ***************** 내 랭크 *****************\n\n");
+    printf("            사용자 아이디 : %s\n", responsesign.UsrId);
+    printf("            순  위  :   %d\n\n", responsesign.win);
+    printf(" *******************************************\n");
+    char skip;
+    printf("아무 키나 입력하세요.");
+    scanf("%s", &skip);
+}
 
+void help() {
+    msgrcv(mspid, &responsesign, RESPONSE_SIZE, questsign.pid, 0);
+    printf("%s\n", responsesign.responsceData);
+    char skip;
+    printf("아무 키나 입력하세요.");
+    scanf("%s", &skip);
+}
