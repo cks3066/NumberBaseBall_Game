@@ -125,10 +125,6 @@ void Init() {
 
 /***********회원가입***********/
 void signUp() {
-    char buf[MAX_BUF_SIZE + 1] = {
-        0,
-    };
-    char sign[1] = {0};
     int overlap = 0;
 
     puts(">> 회원가입");
@@ -146,8 +142,8 @@ void signUp() {
         }
     }
 
-    // 중복 존재 시 0   sign
-    // 중복 없을 시 1   sign
+    // 중복 존재 시 0   responsesigh.responsceData[0]
+    // 중복 없을 시 1   responsesigh.responsceData[0]
     if (overlap == 1) {
         // 유저에게 overlap sign 전달
         responsesigh.responsceData[0] = 0;
@@ -156,7 +152,7 @@ void signUp() {
         puts("회원가입 실패");
         printf("\n");
     } else { // num이 0인 경우도 overlap이 0이기 때문에 포함
-        // 유저에게 non-overlap sign 전달
+        // 유저에게 non-overlap responsesigh.responsceData[0] 전달
         responsesigh.responsceData[0] = 1;
         msgsnd(mspid, &responsesigh, RESPONSE_SIZE, 0);
 
@@ -184,10 +180,6 @@ void signUp() {
 int signIn() {
     // num 만큼　구조체를　돌면서　name 체크 - saveNum에 저장
     // name　발견시　해당　num의　pwd 체크
-    char buf[MAX_BUF_SIZE + 1] = {
-        0,
-    };
-    char sign[1] = {0};
     int saveNum = -1;
 
     puts(">> 로그인");
@@ -268,14 +260,7 @@ void signChoice() {
 }
 
 void game() {
-    int gfd[3] = {
-        0,
-    };
     int rcvNum = 0;
-    char buf[MAX_BUF_SIZE] = {
-        0x00,
-    };
-    char sign[1] = {0};
 
     int serverNum[3] = {
         0,
@@ -311,7 +296,8 @@ void game() {
 
         msgrcv(mspid, &questgame, QUEST_GAME_SIZE, 0, 0);
         responsegame.pid = questgame.pid;
-        rcvNum = questgame.target; // 읽은 buf int로 rcvNum 에 저장 (세자리 수)
+        rcvNum = questgame.target; // 메시지 큐로 받은 questgame.target 으로
+                                   // rcvNum 에 저장 (세자리 수)
 
         printf("입력받은 숫자 : %d\n", rcvNum);
 
@@ -332,7 +318,7 @@ void game() {
                 }
             }
         }
-        // 결과 전달 sign   게임진행:1  정답:2  패배:3
+        // 결과 전달 responscegame.answer   게임진행:1  정답:2  패배:3
         if (num > 9 && strike != 3) { // 서버 승리
             puts("서버 승리");
             printf("\n");

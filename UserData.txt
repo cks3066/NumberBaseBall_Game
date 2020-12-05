@@ -1,7 +1,7 @@
 us1 pw1 5 2 1
-us3 pw3 1 0 2
-us4 pw4 1 0 3
-us5 pw5 1 1 4
-us2 pw2 0 1 5
+us2 pw2 2 1 2
+us3 pw3 1 0 3
+us4 pw4 1 0 4
+us5 pw5 1 1 5
 us7 pw7 0 0 6
 us8 pw8 0 0 7

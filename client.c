@@ -137,7 +137,6 @@ void Init() {
 /***********로그인 UI***********/
 void signChoice() {
     int choice;
-    char sign[1] = {0};
 
     while (1) {
         system("clear");
@@ -169,10 +168,6 @@ void signChoice() {
 
 /***********로그인***********/
 int signIn() {
-    char buf[MAX_BUF_SIZE + 1] = {
-        0,
-    };
-    char sign;
 
     questsign.service = SIGN_IN;
     puts(" ************************* 로그인 ************************* ");
@@ -256,10 +251,9 @@ void signUp() {
     msgsnd(mspid, &questsign, QUEST_SIZE, 0);
     msgrcv(mspid, &responsesign, RESPONSE_SIZE, questsign.pid, 0);
 
-    // server로부터 입력된 buf에 따른 sign을 받아옴 0 중복, 1 미중복
+    // server로부터 처리된 내용에 따른 responsesign 을 받아옴 0 중복, 1 미중복
 
     if (responsesign.responsceData[0] == 0) { // 중복이면
-        // sign = '\0';
         puts("              #이미 존재하는 ID입니다#");
         sleep(1);
         return;
@@ -272,13 +266,6 @@ void signUp() {
 }
 
 void game() {
-    int gfd[3] = {
-        0,
-    };
-    char buf[MAX_BUF_SIZE] = {
-        0x00,
-    };
-    char sign;
     int num = 1;
     int inputNum = 0;
     int units = 0, tens = 0, hunds = 0;
@@ -315,14 +302,11 @@ void game() {
 
                         switch (responsegame.answer) {
                         case 1: // 진행
-
                             printf("    %d스트라이크 %d볼입니다.\n",
                                    responsegame.strike, responsegame.ball);
                             printf("\n");
-
                             num++;
                             break;
-
                         case 2: // 승리
                             puts("  승리했습니다!");
                             printf("\n");
