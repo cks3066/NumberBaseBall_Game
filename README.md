@@ -1,4 +1,4 @@
-# 파이프 라인을 이용한 숫자야구
+# 메세지큐를 이용한 숫자야구
 
 > Kwangwoon University
 
